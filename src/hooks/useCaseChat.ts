@@ -5,8 +5,6 @@ import { callAnthropic } from "../lib/anthropic";
 
 export type Message = { role: "user" | "assistant"; content: string };
 
-const MODEL = "claude-sonnet-4-5";
-
 export function useCaseChat() {
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -19,8 +17,6 @@ export function useCaseChat() {
     let text = "";
     try {
       text = await callAnthropic({
-        model: MODEL,
-        max_tokens: 1000,
         system: SYSTEM_PROMPT(c, c.style),
         messages: [{ role: "user", content: "Please begin the case interview." }],
       });
@@ -41,8 +37,6 @@ export function useCaseChat() {
     let text = "";
     try {
       text = await callAnthropic({
-        model: MODEL,
-        max_tokens: 1000,
         system: SYSTEM_PROMPT(selectedCase, selectedCase.style),
         messages: updated,
       });
