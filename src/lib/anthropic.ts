@@ -1,4 +1,4 @@
-const MODEL = "gemini-1.5-flash";
+const MODEL = "gemini-2.0-flash";
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 type Message = { role: "user" | "assistant"; content: string };
@@ -11,7 +11,6 @@ type Payload = {
 export async function callAnthropic(payload: Payload): Promise<string> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY ?? "";
 
-  // Gemini uses "model" instead of "assistant"
   const contents = payload.messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
