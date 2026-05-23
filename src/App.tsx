@@ -230,11 +230,16 @@ export default function CaseCoach() {
     return (text.match(markers) ?? []).length >= 3;
   };
 
-  const callAPI = async (msgs: {role: string; content: string}[], caseData: any, retried = false): Promise<string> => {
+  const callAPI = async (
+    msgs: {role: string; content: string}[],
+    caseData: any,
+    onChunk: (accumulated: string) => void,
+    retried = false
+  ): Promise<string> => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY ?? "";
-    const models = MODEL_ORDER[caseData.difficulty] ?? MODEL_ORDER.Medium;
-    const model = models[modelIdxRef.current] ?? models[0];
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const modelList = MODEL_ORDER[caseData.difficulty] ?? MODEL_ORDER.Medium;
+    const model = modelList[modelIdxRef.current] ?? modelList[0];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
     const contents = msgs.map((m, i) => ({
       role: m.role === "assistant" ? "model" : "user",
@@ -249,46 +254,76 @@ export default function CaseCoach() {
       body: JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM_PROMPT(caseData, caseData.style) }] },
         contents,
-        generationConfig: { maxOutputTokens: 1500, temperature: 0.75 },
+        generationConfig: { maxOutputTokens: 800, temperature: 0.75 },
       }),
     });
 
     if (res.status === 429 && !retried) {
-      const next = Math.min(modelIdxRef.current + 1, models.length - 1);
+      const next = Math.min(modelIdxRef.current + 1, modelList.length - 1);
       modelIdxRef.current = next;
-      setActiveModel(models[next]);
-      return callAPI(msgs, caseData, true);
+      setActiveModel(modelList[next]);
+      return callAPI(msgs, caseData, onChunk, true);
     }
 
-    const raw = await res.text();
-    if (!raw?.trim()) throw new Error("Empty response (status " + res.status + ")");
-    if (!res.ok) throw new Error("API " + res.status + ": " + raw.slice(0, 200));
-    const data = JSON.parse(raw);
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "...";
+    if (!res.ok) {
+      const raw = await res.text();
+      throw new Error("API " + res.status + ": " + raw.slice(0, 200));
+    }
+    if (!res.body) throw new Error("No stream");
 
-    if (!retried && isSpanish(text)) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let fullText = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const json = line.slice(6).trim();
+        if (!json || json === "[DONE]") continue;
+        try {
+          const chunk = JSON.parse(json);
+          const part = chunk.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          if (part) { fullText += part; onChunk(fullText); }
+        } catch {}
+      }
+    }
+
+    if (!retried && isSpanish(fullText)) {
       const corrected = [
         ...msgs,
-        { role: "assistant", content: text },
+        { role: "assistant", content: fullText },
         { role: "user", content: "Please repeat your last response in English only." },
       ];
-      return callAPI(corrected, caseData, true);
+      return callAPI(corrected, caseData, onChunk, true);
     }
 
-    return text;
+    return fullText || "...";
   };
 
   const startCase = async (c: any) => {
-    pickVoice(); // fresh random voice for each case session
+    pickVoice();
     const models = MODEL_ORDER[c.difficulty] ?? MODEL_ORDER.Medium;
     modelIdxRef.current = 0;
     setActiveModel(models[0]);
     setSelectedCase(c); setMessages([]); setPhase("chat"); setLoading(true);
+    const initMsgs = [{ role: "user", content: "Please begin the case interview." }];
+    let firstChunk = true;
     try {
-      const text = await callAPI([{ role: "user", content: "Please begin the case interview." }], c);
+      const text = await callAPI(initMsgs, c, (partial) => {
+        if (firstChunk) { firstChunk = false; setLoading(false); }
+        setMessages([{ role: "assistant", content: partial }]);
+      });
       setMessages([{ role: "assistant", content: text }]);
       speak(text);
-    } catch (err: any) { setMessages([{ role: "assistant", content: "Error: " + err.message }]); }
+    } catch (err: any) {
+      setMessages([{ role: "assistant", content: "Error: " + err.message }]);
+    }
     setLoading(false);
     setTimeout(() => inputRef.current?.focus(), 100);
   };
@@ -300,11 +335,18 @@ export default function CaseCoach() {
     const updated = [...messages, { role: "user", content: userMsg }];
     setMessages(updated);
     setLoading(true);
+    const apiMsgs = updated.map(m => ({ role: m.role, content: m.content }));
+    let firstChunk = true;
     try {
-      const text = await callAPI(updated.map(m => ({ role: m.role, content: m.content })), selectedCase);
+      const text = await callAPI(apiMsgs, selectedCase, (partial) => {
+        if (firstChunk) { firstChunk = false; setLoading(false); }
+        setMessages([...updated, { role: "assistant", content: partial }]);
+      });
       setMessages([...updated, { role: "assistant", content: text }]);
       speak(text);
-    } catch (err: any) { setMessages([...updated, { role: "assistant", content: "Error: " + err.message }]); }
+    } catch (err: any) {
+      setMessages([...updated, { role: "assistant", content: "Error: " + err.message }]);
+    }
     setLoading(false);
     setTimeout(() => inputRef.current?.focus(), 100);
   };
