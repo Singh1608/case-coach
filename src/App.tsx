@@ -258,7 +258,7 @@ export default function CaseCoach() {
       }),
     });
 
-    if (res.status === 429 && !retried) {
+    if ((res.status === 429 || res.status === 503) && !retried) {
       const next = Math.min(modelIdxRef.current + 1, modelList.length - 1);
       modelIdxRef.current = next;
       setActiveModel(modelList[next]);
@@ -266,8 +266,7 @@ export default function CaseCoach() {
     }
 
     if (!res.ok) {
-      const raw = await res.text();
-      throw new Error("API " + res.status + ": " + raw.slice(0, 200));
+      throw new Error("API " + res.status);
     }
     if (!res.body) throw new Error("No stream");
 
@@ -321,8 +320,8 @@ export default function CaseCoach() {
       });
       setMessages([{ role: "assistant", content: text }]);
       speak(text);
-    } catch (err: any) {
-      setMessages([{ role: "assistant", content: "Error: " + err.message }]);
+    } catch {
+      setMessages([{ role: "assistant", content: "The app is currently experiencing high demand, please try again in a moment." }]);
     }
     setLoading(false);
     setTimeout(() => inputRef.current?.focus(), 100);
@@ -344,8 +343,8 @@ export default function CaseCoach() {
       });
       setMessages([...updated, { role: "assistant", content: text }]);
       speak(text);
-    } catch (err: any) {
-      setMessages([...updated, { role: "assistant", content: "Error: " + err.message }]);
+    } catch {
+      setMessages([...updated, { role: "assistant", content: "The app is currently experiencing high demand, please try again in a moment." }]);
     }
     setLoading(false);
     setTimeout(() => inputRef.current?.focus(), 100);
