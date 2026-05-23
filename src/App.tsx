@@ -254,36 +254,36 @@ export default function CaseCoach() {
 
   // ── SELECT SCREEN ──
   if (phase === "select") return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)", fontFamily: "'Segoe UI', system-ui, sans-serif", color: "#f1f5f9" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(150deg, #EEF3FF 0%, #F5FDF8 45%, #FFF1F3 100%)", fontFamily: "'Segoe UI', system-ui, sans-serif", color: "#0D1B2A" }}>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-        .card { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 20px 24px; cursor: pointer; transition: all 0.25s ease; }
-        .card:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.2); }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+        .card { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 20px 24px; cursor: pointer; transition: all 0.22s ease; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,48,135,0.10); border-color: #003087; }
         .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
-        .filter-btn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.6); padding: 7px 16px; font-size: 12px; cursor: pointer; border-radius: 20px; transition: all 0.15s; white-space: nowrap; }
-        .filter-btn.active, .filter-btn:hover { background: rgba(99,102,241,0.3); border-color: #6366f1; color: #fff; }
-        .diff-easy { background: rgba(16,185,129,0.15); color: #34d399; }
-        .diff-medium { background: rgba(245,158,11,0.15); color: #fbbf24; }
-        .diff-hard { background: rgba(239,68,68,0.15); color: #f87171; }
+        .filter-btn { background: #FFFFFF; border: 1px solid #D1D5DB; color: #6B7280; padding: 7px 16px; font-size: 12px; cursor: pointer; border-radius: 20px; transition: all 0.15s; white-space: nowrap; font-family: inherit; }
+        .filter-btn.active, .filter-btn:hover { background: #003087; border-color: #003087; color: #fff; }
+        .diff-easy { background: rgba(0,166,81,0.10); color: #005C2E; border: 1px solid rgba(0,166,81,0.25); }
+        .diff-medium { background: rgba(200,121,0,0.10); color: #7A4A00; border: 1px solid rgba(200,121,0,0.25); }
+        .diff-hard { background: rgba(200,16,46,0.10); color: #8B0000; border: 1px solid rgba(200,16,46,0.25); }
       `}</style>
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "48px 20px 80px" }}>
         <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(99,102,241,0.2)", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 24, padding: "8px 20px", marginBottom: 24 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(0,48,135,0.07)", border: "1px solid rgba(0,48,135,0.18)", borderRadius: 24, padding: "8px 20px", marginBottom: 24 }}>
             <span style={{ fontSize: 18 }}>🎯</span>
-            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#a5b4fc", textTransform: "uppercase" }}>MBB Case Interview Coach</span>
+            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#003087", textTransform: "uppercase" }}>MBB Case Interview Coach</span>
           </div>
-          <h1 style={{ fontSize: "clamp(36px,6vw,60px)", fontWeight: 800, lineHeight: 1.1, marginBottom: 16, background: "linear-gradient(135deg, #fff 0%, #a5b4fc 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+          <h1 style={{ fontSize: "clamp(36px,6vw,60px)", fontWeight: 800, lineHeight: 1.1, marginBottom: 16, background: "linear-gradient(135deg, #003087 0%, #00A651 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             The Case Coach
           </h1>
-          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, maxWidth: 480, margin: "0 auto", lineHeight: 1.7 }}>
-            25 cases across 8 types. Voice-enabled. Type <span style={{ color: "#a5b4fc", fontWeight: 600 }}>/hint</span>, <span style={{ color: "#a5b4fc", fontWeight: 600 }}>/feedback</span>, or <span style={{ color: "#a5b4fc", fontWeight: 600 }}>/score</span> anytime.
+          <p style={{ color: "#6B7280", fontSize: 15, maxWidth: 480, margin: "0 auto", lineHeight: 1.7 }}>
+            25 cases across 8 types. Voice-enabled. Type <span style={{ color: "#003087", fontWeight: 600 }}>/hint</span>, <span style={{ color: "#003087", fontWeight: 600 }}>/feedback</span>, or <span style={{ color: "#003087", fontWeight: 600 }}>/score</span> anytime.
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 20, flexWrap: "wrap" }}>
             {[["25", "Cases"], ["8", "Types"], ["🎙️", "Voice I/O"], ["3", "Difficulty Levels"]].map(([n, l]) => (
-              <div key={l} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: "10px 20px", textAlign: "center" }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#a5b4fc" }}>{n}</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>{l}</div>
+              <div key={l} style={{ background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 12, padding: "10px 20px", textAlign: "center", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#003087" }}>{n}</div>
+                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>{l}</div>
               </div>
             ))}
           </div>
@@ -297,14 +297,14 @@ export default function CaseCoach() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
-                    <span className="pill" style={{ background: TYPE_COLORS[c.type] + "25", color: TYPE_COLORS[c.type], border: `1px solid ${TYPE_COLORS[c.type]}40` }}>{c.type}</span>
+                    <span className="pill" style={{ background: TYPE_COLORS[c.type] + "18", color: TYPE_COLORS[c.type], border: `1px solid ${TYPE_COLORS[c.type]}35` }}>{c.type}</span>
                     <span className={`pill diff-${c.difficulty.toLowerCase()}`}>{c.difficulty}</span>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginLeft: 4 }}>{c.style}</span>
+                    <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 4 }}>{c.style}</span>
                   </div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>{c.title}</div>
-                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.5 }}>{c.prompt.slice(0, 110)}...</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: "#0D1B2A", marginBottom: 6 }}>{c.title}</div>
+                  <div style={{ fontSize: 13, color: "#9CA3AF", lineHeight: 1.5 }}>{c.prompt.slice(0, 110)}...</div>
                 </div>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(99,102,241,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16 }}>→</div>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(0,48,135,0.08)", border: "1px solid rgba(0,48,135,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16, color: "#003087" }}>→</div>
               </div>
             </div>
           ))}
@@ -315,34 +315,34 @@ export default function CaseCoach() {
 
   // ── CHAT SCREEN ──
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "linear-gradient(180deg, #0f0c29 0%, #1a1a2e 100%)", fontFamily: "'Segoe UI', system-ui, sans-serif", color: "#f1f5f9" }}>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#F5F7FA", fontFamily: "'Segoe UI', system-ui, sans-serif", color: "#0D1B2A" }}>
       <style>{`
         * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-        .bubble-ai { background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25); border-radius: 18px 18px 18px 4px; }
-        .bubble-user { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 18px 18px 4px 18px; }
-        .icon-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 18px; flex-shrink: 0; }
-        .icon-btn:hover { background: rgba(255,255,255,0.15); }
-        .icon-btn.active { background: rgba(239,68,68,0.3); border-color: #ef4444; animation: pulse-ring 1s ease infinite; }
-        .icon-btn.speaking { background: rgba(99,102,241,0.3); border-color: #6366f1; }
-        .send-btn { background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; border-radius: 12px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 18px; flex-shrink: 0; }
-        .send-btn:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 4px 16px rgba(99,102,241,0.4); }
-        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        textarea { background: transparent; border: none; outline: none; color: #f1f5f9; font-family: inherit; font-size: 14px; resize: none; flex: 1; line-height: 1.6; }
-        textarea::placeholder { color: rgba(255,255,255,0.25); }
-        @keyframes pulse-ring { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 2px; }
+        .bubble-ai { background: #EEF3FF; border: 1px solid #C7D2FE; border-radius: 18px 18px 18px 4px; }
+        .bubble-user { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 18px 18px 4px 18px; }
+        .icon-btn { background: #F3F4F6; border: 1px solid #E5E7EB; border-radius: 12px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 18px; flex-shrink: 0; }
+        .icon-btn:hover { background: #E5E7EB; }
+        .icon-btn.active { background: rgba(200,16,46,0.10); border-color: #C8102E; animation: pulse-ring 1s ease infinite; }
+        .icon-btn.speaking { background: rgba(0,48,135,0.10); border-color: #003087; }
+        .send-btn { background: linear-gradient(135deg, #003087, #00A651); border: none; border-radius: 12px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 18px; flex-shrink: 0; color: white; }
+        .send-btn:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 4px 16px rgba(0,48,135,0.25); }
+        .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        textarea { background: transparent; border: none; outline: none; color: #0D1B2A; font-family: inherit; font-size: 14px; resize: none; flex: 1; line-height: 1.6; }
+        textarea::placeholder { color: #9CA3AF; }
+        @keyframes pulse-ring { 0%,100% { box-shadow: 0 0 0 0 rgba(200,16,46,0.3); } 50% { box-shadow: 0 0 0 8px rgba(200,16,46,0); } }
         @keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
-        .dot { width: 6px; height: 6px; background: #6366f1; border-radius: 50%; animation: bounce 1.2s ease infinite; display: inline-block; }
+        .dot { width: 6px; height: 6px; background: #003087; border-radius: 50%; animation: bounce 1.2s ease infinite; display: inline-block; }
         .dot:nth-child(2) { animation-delay: 0.15s; } .dot:nth-child(3) { animation-delay: 0.3s; }
       `}</style>
 
-      <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", gap: 14, background: "rgba(15,12,41,0.8)", backdropFilter: "blur(12px)", flexShrink: 0 }}>
-        <button onClick={() => { setPhase("select"); setSelectedCase(null); setMessages([]); stopSpeaking(); }} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "7px 14px", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>
+      <div style={{ padding: "14px 20px", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: 14, background: "#FFFFFF", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+        <button onClick={() => { setPhase("select"); setSelectedCase(null); setMessages([]); stopSpeaking(); }} style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 10, padding: "7px 14px", color: "#4B5563", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>
           ← Cases
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selectedCase?.title}</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>{selectedCase?.type} · {selectedCase?.style} · {selectedCase?.difficulty} · <span style={{ color: "rgba(165,180,252,0.6)" }}>{activeModel}</span></div>
+          <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#0D1B2A" }}>{selectedCase?.title}</div>
+          <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>{selectedCase?.type} · {selectedCase?.style} · {selectedCase?.difficulty}</div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {isSpeaking && <button className="icon-btn speaking" onClick={stopSpeaking} title="Stop speaking">🔊</button>}
@@ -355,17 +355,17 @@ export default function CaseCoach() {
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
         {messages.map((m, i) => (
           <div key={i} style={{ display: "flex", flexDirection: m.role === "assistant" ? "row" : "row-reverse", gap: 10, alignItems: "flex-end" }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: m.role === "assistant" ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: m.role === "assistant" ? "linear-gradient(135deg,#003087,#00A651)" : "#F3F4F6", border: m.role === "assistant" ? "none" : "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
               {m.role === "assistant" ? "🎓" : "👤"}
             </div>
             <div className={m.role === "assistant" ? "bubble-ai" : "bubble-user"} style={{ maxWidth: "78%", padding: "12px 16px" }}>
-              <div style={{ fontSize: 13, lineHeight: 1.7, color: m.role === "assistant" ? "#e2e8f0" : "rgba(255,255,255,0.75)", whiteSpace: "pre-wrap" }}>{m.content}</div>
+              <div style={{ fontSize: 13, lineHeight: 1.7, color: m.role === "assistant" ? "#1E3A5F" : "#374151", whiteSpace: "pre-wrap" }}>{m.content}</div>
             </div>
           </div>
         ))}
         {loading && (
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🎓</div>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#003087,#00A651)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🎓</div>
             <div className="bubble-ai" style={{ padding: "14px 18px", display: "flex", gap: 5, alignItems: "center" }}>
               <div className="dot" /><div className="dot" /><div className="dot" />
             </div>
@@ -374,14 +374,14 @@ export default function CaseCoach() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div style={{ padding: "12px 16px 16px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(15,12,41,0.9)", backdropFilter: "blur(12px)", flexShrink: 0 }}>
+      <div style={{ padding: "12px 16px 16px", borderTop: "1px solid #E5E7EB", background: "#FFFFFF", flexShrink: 0 }}>
         {(isListening || transcript) && (
-          <div style={{ marginBottom: 8, padding: "8px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, fontSize: 13, color: "#fca5a5", display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", display: "inline-block", animation: "pulse-ring 1s ease infinite" }} />
+          <div style={{ marginBottom: 8, padding: "8px 14px", background: "rgba(200,16,46,0.06)", border: "1px solid rgba(200,16,46,0.2)", borderRadius: 10, fontSize: 13, color: "#C8102E", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#C8102E", display: "inline-block", animation: "pulse-ring 1s ease infinite" }} />
             {transcript || "Listening..."}
           </div>
         )}
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: "10px 12px" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 16, padding: "10px 12px" }}>
           <textarea ref={inputRef} rows={2} placeholder="Type your response or use the mic..." value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} disabled={loading} />
           <button className={`icon-btn ${isListening ? "active" : ""}`} onClick={isListening ? stopListening : startListening} disabled={loading} title={isListening ? "Stop recording" : "Start voice input"}>
             {isListening ? "⏹" : "🎙️"}
@@ -390,7 +390,7 @@ export default function CaseCoach() {
         </div>
         <div style={{ display: "flex", gap: 12, marginTop: 8, justifyContent: "center" }}>
           {["/hint", "/feedback", "/score"].map(cmd => (
-            <button key={cmd} onClick={() => { setInput(cmd); setTimeout(() => sendMessage(cmd), 50); }} style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 8, padding: "4px 12px", color: "#a5b4fc", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+            <button key={cmd} onClick={() => { setInput(cmd); setTimeout(() => sendMessage(cmd), 50); }} style={{ background: "rgba(0,48,135,0.06)", border: "1px solid rgba(0,48,135,0.18)", borderRadius: 8, padding: "4px 12px", color: "#003087", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
               {cmd}
             </button>
           ))}
