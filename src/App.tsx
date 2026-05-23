@@ -377,11 +377,7 @@ export default function CaseCoach() {
       `}</style>
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "48px 20px 80px" }}>
         <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(0,48,135,0.07)", border: "1px solid rgba(0,48,135,0.18)", borderRadius: 24, padding: "8px 20px", marginBottom: 24 }}>
-            <span style={{ fontSize: 18 }}>🎯</span>
-            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#003087", textTransform: "uppercase" }}>MBB Case Interview Coach</span>
-          </div>
-          <h1 style={{ fontSize: "clamp(36px,6vw,60px)", fontWeight: 800, lineHeight: 1.1, marginBottom: 16, background: "linear-gradient(135deg, #003087 0%, #00A651 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+<h1 style={{ fontSize: "clamp(36px,6vw,60px)", fontWeight: 800, lineHeight: 1.1, marginBottom: 16, background: "linear-gradient(135deg, #003087 0%, #00A651 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             The Case Coach
           </h1>
           <p style={{ color: "#6B7280", fontSize: 15, maxWidth: 480, margin: "0 auto", lineHeight: 1.7 }}>
