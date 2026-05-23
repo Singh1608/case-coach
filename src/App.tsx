@@ -148,21 +148,61 @@ export default function CaseCoach() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { alert("Voice input not supported in this browser. Try Chrome."); return; }
     stopSpeaking();
+
     const rec = new SR();
-    rec.continuous = false; rec.interimResults = true; rec.lang = "en-US";
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = "en-US";
+
+    let finalText = "";
+
     rec.onstart = () => setIsListening(true);
+
     rec.onresult = (e: any) => {
-      const t = Array.from(e.results).map((r: any) => r[0].transcript).join("");
-      setTranscript(t);
-      if (e.results[e.results.length - 1].isFinal) { setInput(t); setTranscript(""); }
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          finalText += e.results[i][0].transcript + " ";
+        } else {
+          interim = e.results[i][0].transcript;
+        }
+      }
+      const combined = finalText.trimEnd() + (interim ? " " + interim : "");
+      setTranscript(interim);
+      setInput(combined.trim());
     };
-    rec.onend = () => { setIsListening(false); setTranscript(""); };
-    rec.onerror = () => { setIsListening(false); setTranscript(""); };
+
+    rec.onend = () => {
+      // auto-restart unless the user manually stopped (ref cleared by stopListening)
+      if (recognitionRef.current === rec) {
+        try { rec.start(); } catch (_) {}
+      } else {
+        setIsListening(false);
+        setTranscript("");
+      }
+    };
+
+    rec.onerror = (e: any) => {
+      if (e.error === "no-speech" && recognitionRef.current === rec) {
+        try { rec.start(); } catch (_) {}
+      } else if (recognitionRef.current === rec) {
+        recognitionRef.current = null;
+        setIsListening(false);
+        setTranscript("");
+      }
+    };
+
     recognitionRef.current = rec;
     rec.start();
   }, []);
 
-  const stopListening = () => { recognitionRef.current?.stop(); setIsListening(false); };
+  const stopListening = () => {
+    const rec = recognitionRef.current;
+    recognitionRef.current = null; // signal onend not to restart
+    rec?.stop();
+    setIsListening(false);
+    setTranscript("");
+  };
 
   const isSpanish = (text: string): boolean => {
     const markers = /\b(el |la |los |las |de |que |es |en |un |una |con |para |por |como |está|están|tiene|tienen|pero |también|esto |esta |ese |esa |del |al |lo |le |se |su |más |muy |todo|toda|cuando|donde|quien|porque|aunque|sino|cada|otro|otra)\b/gi;
