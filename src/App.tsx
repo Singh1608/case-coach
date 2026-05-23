@@ -76,9 +76,14 @@ Open the case now.`;
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  "Market Entry": "#6366f1", "Profitability": "#f59e0b", "M&A / Due Diligence": "#ec4899",
-  "Operations / Cost Reduction": "#10b981", "Go to Market": "#3b82f6",
-  "Product Strategy": "#8b5cf6", "Product Analysis": "#ef4444", "Channel Analysis": "#14b8a6"
+  "Market Entry": "#6366f1",
+  "Profitability": "#f59e0b",
+  "M&A / Due Diligence": "#ec4899",
+  "Operations / Cost Reduction": "#10b981",
+  "Go to Market": "#3b82f6",
+  "Product Strategy": "#8b5cf6",
+  "Product Analysis": "#ef4444",
+  "Channel Analysis": "#14b8a6",
 };
 
 export default function CaseCoach() {
@@ -93,6 +98,7 @@ export default function CaseCoach() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [transcript, setTranscript] = useState("");
   const [activeModel, setActiveModel] = useState(MODEL_ORDER.Medium[0]);
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
   const modelIdxRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -106,31 +112,18 @@ export default function CaseCoach() {
   const pickVoice = useCallback(() => {
     const voices = synthRef.current?.getVoices() ?? [];
     if (voices.length === 0) return;
-
-    // Natural-sounding voices: Google Neural > Apple system > decent en-* fallback
-    // Covers US, UK, Canadian, Indian accents, mix of male/female
     const preferred = [
       "Google UK English Male", "Google UK English Female",
-      "Google US English",
-      "Daniel",   // UK male (macOS/iOS)
-      "Martha",   // UK female (macOS/iOS)
-      "Alex",     // US male (macOS)
-      "Samantha", // US female (macOS/iOS)
-      "Victoria", // US female (macOS)
-      "Rishi",    // Indian male (macOS/iOS)
-      "Moira",    // Irish female (macOS)
+      "Google US English", "Daniel", "Martha", "Alex", "Samantha",
+      "Victoria", "Rishi", "Moira",
     ];
-
     const good = voices.filter(v =>
       v.lang.startsWith("en") && preferred.some(p => v.name.includes(p))
     );
-
-    // Fallback: any en-GB, en-US, en-IN, en-CA that isn't a known robotic MS voice
     const decent = voices.filter(v =>
       ["en-GB", "en-US", "en-IN", "en-CA"].includes(v.lang) &&
       !/(zira|david|mark|hazel|hedda|helena|stefan|pablo)/i.test(v.name)
     );
-
     const pool = good.length > 0 ? good : decent;
     if (pool.length > 0) {
       selectedVoiceRef.current = pool[Math.floor(Math.random() * pool.length)];
@@ -155,7 +148,7 @@ export default function CaseCoach() {
     if (!selectedVoiceRef.current) pickVoice();
     const utt = new SpeechSynthesisUtterance(clean);
     if (selectedVoiceRef.current) utt.voice = selectedVoiceRef.current;
-    utt.rate = 0.9 + Math.random() * 0.05; // 0.90–0.95, slight natural variation
+    utt.rate = 0.9 + Math.random() * 0.05;
     utt.pitch = 1.0;
     utt.volume = 1.0;
     utt.onstart = () => setIsSpeaking(true);
@@ -170,16 +163,12 @@ export default function CaseCoach() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { alert("Voice input not supported in this browser. Try Chrome."); return; }
     stopSpeaking();
-
     const rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = "en-US";
-
     let finalText = "";
-
     rec.onstart = () => setIsListening(true);
-
     rec.onresult = (e: any) => {
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -193,9 +182,7 @@ export default function CaseCoach() {
       setTranscript(interim);
       setInput(combined.trim());
     };
-
     rec.onend = () => {
-      // auto-restart unless the user manually stopped (ref cleared by stopListening)
       if (recognitionRef.current === rec) {
         try { rec.start(); } catch (_) {}
       } else {
@@ -203,7 +190,6 @@ export default function CaseCoach() {
         setTranscript("");
       }
     };
-
     rec.onerror = (e: any) => {
       if (e.error === "no-speech" && recognitionRef.current === rec) {
         try { rec.start(); } catch (_) {}
@@ -213,14 +199,13 @@ export default function CaseCoach() {
         setTranscript("");
       }
     };
-
     recognitionRef.current = rec;
     rec.start();
   }, []);
 
   const stopListening = () => {
     const rec = recognitionRef.current;
-    recognitionRef.current = null; // signal onend not to restart
+    recognitionRef.current = null;
     rec?.stop();
     setIsListening(false);
     setTranscript("");
@@ -260,7 +245,6 @@ export default function CaseCoach() {
       return callAPI(msgs, caseData, onChunk, true);
     };
 
-    // Attempt 1: streaming (faster perceived response)
     let fullText = "";
     try {
       const streamUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
@@ -289,7 +273,6 @@ export default function CaseCoach() {
       }
     } catch {}
 
-    // Attempt 2: non-streaming fallback if stream gave nothing
     if (!fullText) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -355,60 +338,177 @@ export default function CaseCoach() {
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
-  const handleKey = (e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
 
   const types = ["All", "Market Entry", "Profitability", "M&A / Due Diligence", "Operations / Cost Reduction", "Go to Market", "Product Strategy", "Product Analysis", "Channel Analysis"];
   const filtered = filter === "All" ? CASES : CASES.filter(c => c.type === filter);
 
   // ── SELECT SCREEN ──
   if (phase === "select") return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(150deg, #EEF3FF 0%, #F5FDF8 45%, #FFF1F3 100%)", fontFamily: "'Segoe UI', system-ui, sans-serif", color: "#0D1B2A" }}>
+    <div style={{ minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif", position: "relative", overflow: "hidden", color: "#0D1B2A" }}>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
-        .card { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 20px 24px; cursor: pointer; transition: all 0.22s ease; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-        .card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,48,135,0.10); border-color: #003087; }
-        .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
-        .filter-btn { background: #FFFFFF; border: 1px solid #D1D5DB; color: #6B7280; padding: 7px 16px; font-size: 12px; cursor: pointer; border-radius: 20px; transition: all 0.15s; white-space: nowrap; font-family: inherit; }
-        .filter-btn.active, .filter-btn:hover { background: #003087; border-color: #003087; color: #fff; }
-        .diff-easy { background: rgba(0,166,81,0.10); color: #005C2E; border: 1px solid rgba(0,166,81,0.25); }
-        .diff-medium { background: rgba(200,121,0,0.10); color: #7A4A00; border: 1px solid rgba(200,121,0,0.25); }
-        .diff-hard { background: rgba(200,16,46,0.10); color: #8B0000; border: 1px solid rgba(200,16,46,0.25); }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; }
+        @keyframes float-orb-1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(30px,-20px) scale(1.05); } }
+        @keyframes float-orb-2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-20px,30px) scale(0.97); } }
+        @keyframes float-orb-3 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(15px,20px) scale(1.03); } }
+        .case-card { transition: transform 0.28s cubic-bezier(0.34,1.4,0.64,1), box-shadow 0.28s ease; }
+        .case-card:hover { transform: translateY(-3px) scale(1.005); box-shadow: 0 16px 48px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1) !important; }
+        .filter-pill { transition: all 0.18s ease; }
+        .filter-pill:hover { transform: scale(1.04); }
       `}</style>
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "48px 20px 80px" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
-<h1 style={{ fontSize: "clamp(36px,6vw,60px)", fontWeight: 800, lineHeight: 1.1, marginBottom: 16, background: "linear-gradient(135deg, #003087 0%, #00A651 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            The Case Coach
+
+      {/* Background gradient */}
+      <div style={{ position: "fixed", inset: 0, background: "linear-gradient(145deg, #dce8ff 0%, #ede6ff 30%, #d8f5ea 62%, #ffe8f0 100%)", zIndex: 0 }} />
+
+      {/* Floating colour orbs */}
+      <div style={{ position: "fixed", width: 700, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.22) 0%, transparent 68%)", top: -180, left: -140, zIndex: 0, animation: "float-orb-1 14s ease-in-out infinite" }} />
+      <div style={{ position: "fixed", width: 550, height: 550, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,166,81,0.18) 0%, transparent 68%)", bottom: -80, right: -100, zIndex: 0, animation: "float-orb-2 18s ease-in-out infinite" }} />
+      <div style={{ position: "fixed", width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,48,135,0.14) 0%, transparent 68%)", top: "38%", right: "12%", zIndex: 0, animation: "float-orb-3 11s ease-in-out infinite" }} />
+      <div style={{ position: "fixed", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(236,72,153,0.12) 0%, transparent 68%)", top: "15%", right: "30%", zIndex: 0, animation: "float-orb-1 16s ease-in-out infinite reverse" }} />
+
+      {/* Content */}
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 880, margin: "0 auto", padding: "56px 20px 88px" }}>
+
+        {/* Hero */}
+        <div style={{ textAlign: "center", marginBottom: 52 }}>
+          <h1 style={{
+            fontSize: "clamp(48px, 8vw, 80px)",
+            fontWeight: 700,
+            letterSpacing: "-0.04em",
+            lineHeight: 1.0,
+            marginBottom: 18,
+            background: "linear-gradient(140deg, #003087 0%, #6366f1 45%, #00A651 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}>
+            Case Coach
           </h1>
-          <p style={{ color: "#6B7280", fontSize: 15, maxWidth: 480, margin: "0 auto", lineHeight: 1.7 }}>
-            25 cases across 8 types. Voice-enabled. Type <span style={{ color: "#003087", fontWeight: 600 }}>/hint</span>, <span style={{ color: "#003087", fontWeight: 600 }}>/feedback</span>, or <span style={{ color: "#003087", fontWeight: 600 }}>/score</span> anytime.
+          <p style={{ color: "rgba(0,0,0,0.42)", fontSize: 15, maxWidth: 400, margin: "0 auto 28px", lineHeight: 1.75, letterSpacing: "-0.01em" }}>
+            25 cases across 8 types. Type{" "}
+            <span style={{ color: "#003087", fontWeight: 600 }}>/hint</span>,{" "}
+            <span style={{ color: "#003087", fontWeight: 600 }}>/feedback</span>, or{" "}
+            <span style={{ color: "#003087", fontWeight: 600 }}>/score</span> anytime.
           </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 20, flexWrap: "wrap" }}>
-            {[["25", "Cases"], ["8", "Types"], ["🎙️", "Voice I/O"], ["3", "Difficulty Levels"]].map(([n, l]) => (
-              <div key={l} style={{ background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 12, padding: "10px 20px", textAlign: "center", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#003087" }}>{n}</div>
-                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>{l}</div>
-              </div>
+
+          {/* Stat chips */}
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            {[["25 Cases", "#5856D6"], ["8 Types", "#00A651"], ["Voice I/O", "#C8102E"], ["3 Levels", "#003087"]].map(([label, color]) => (
+              <div key={label} style={{
+                background: "rgba(255,255,255,0.55)",
+                backdropFilter: "blur(18px) saturate(180%)",
+                WebkitBackdropFilter: "blur(18px) saturate(180%)",
+                border: "1px solid rgba(255,255,255,0.85)",
+                borderRadius: 50,
+                padding: "7px 18px",
+                fontSize: 12,
+                fontWeight: 600,
+                color: color as string,
+                letterSpacing: "0.01em",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.95)",
+              }}>{label}</div>
             ))}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 28, justifyContent: "center" }}>
-          {types.map(t => <button key={t} className={`filter-btn ${filter === t ? "active" : ""}`} onClick={() => setFilter(t)}>{t}</button>)}
+
+        {/* Filter pills */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24, justifyContent: "center" }}>
+          {types.map(t => (
+            <button
+              key={t}
+              className="filter-pill"
+              onClick={() => setFilter(t)}
+              style={{
+                background: filter === t ? "rgba(0,48,135,0.88)" : "rgba(255,255,255,0.55)",
+                backdropFilter: "blur(16px) saturate(180%)",
+                WebkitBackdropFilter: "blur(16px) saturate(180%)",
+                border: filter === t ? "1px solid rgba(0,48,135,0.25)" : "1px solid rgba(255,255,255,0.85)",
+                color: filter === t ? "#fff" : "rgba(0,0,0,0.5)",
+                borderRadius: 50,
+                padding: "7px 18px",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                letterSpacing: "0.01em",
+                boxShadow: filter === t
+                  ? "0 4px 18px rgba(0,48,135,0.28)"
+                  : "0 2px 8px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.95)",
+              }}
+            >{t}</button>
+          ))}
         </div>
+
+        {/* Case cards */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {filtered.map(c => (
-            <div key={c.id} className="card" onClick={() => startCase(c)}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
-                    <span className="pill" style={{ background: TYPE_COLORS[c.type] + "18", color: TYPE_COLORS[c.type], border: `1px solid ${TYPE_COLORS[c.type]}35` }}>{c.type}</span>
-                    <span className={`pill diff-${c.difficulty.toLowerCase()}`}>{c.difficulty}</span>
-                    <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 4 }}>{c.style}</span>
-                  </div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: "#0D1B2A", marginBottom: 6 }}>{c.title}</div>
-                  <div style={{ fontSize: 13, color: "#9CA3AF", lineHeight: 1.5 }}>{c.prompt.slice(0, 110)}...</div>
+            <div
+              key={c.id}
+              className="case-card"
+              onClick={() => startCase(c)}
+              style={{
+                background: "rgba(255,255,255,0.58)",
+                backdropFilter: "blur(26px) saturate(200%)",
+                WebkitBackdropFilter: "blur(26px) saturate(200%)",
+                border: "1px solid rgba(255,255,255,0.88)",
+                borderRadius: 20,
+                padding: "18px 22px",
+                cursor: "pointer",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.95)",
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+              }}
+            >
+              {/* Type accent bar */}
+              <div style={{
+                width: 4,
+                height: 50,
+                borderRadius: 4,
+                background: TYPE_COLORS[c.type],
+                flexShrink: 0,
+                opacity: 0.8,
+              }} />
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: TYPE_COLORS[c.type], letterSpacing: "0.06em", textTransform: "uppercase" }}>{c.type}</span>
+                  <span style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(0,0,0,0.18)", display: "inline-block" }} />
+                  <span style={{ fontSize: 11, color: "rgba(0,0,0,0.38)", letterSpacing: "-0.01em" }}>{c.style}</span>
                 </div>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(0,48,135,0.08)", border: "1px solid rgba(0,48,135,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16, color: "#003087" }}>→</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "#0D1B2A", marginBottom: 4, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</div>
+                <div style={{ fontSize: 12, color: "rgba(0,0,0,0.38)", lineHeight: 1.55, letterSpacing: "-0.01em" }}>{c.prompt.slice(0, 100)}…</div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10, flexShrink: 0 }}>
+                <span style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: "3px 10px",
+                  borderRadius: 50,
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                  background: c.difficulty === "Easy"
+                    ? "rgba(0,166,81,0.10)" : c.difficulty === "Medium"
+                    ? "rgba(245,158,11,0.10)" : "rgba(200,16,46,0.10)",
+                  color: c.difficulty === "Easy" ? "#005C2E" : c.difficulty === "Medium" ? "#7A4A00" : "#8B0000",
+                  border: `1px solid ${c.difficulty === "Easy" ? "rgba(0,166,81,0.22)" : c.difficulty === "Medium" ? "rgba(245,158,11,0.22)" : "rgba(200,16,46,0.22)"}`,
+                }}>{c.difficulty}</span>
+                <div style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  background: "rgba(0,48,135,0.07)",
+                  border: "1px solid rgba(0,48,135,0.14)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 13,
+                  color: "#003087",
+                }}>→</div>
               </div>
             </div>
           ))}
@@ -419,58 +519,118 @@ export default function CaseCoach() {
 
   // ── CHAT SCREEN ──
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#F5F7FA", fontFamily: "'Segoe UI', system-ui, sans-serif", color: "#0D1B2A" }}>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif", position: "relative", overflow: "hidden", color: "#0D1B2A" }}>
       <style>{`
         * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 2px; }
-        .bubble-ai { background: #EEF3FF; border: 1px solid #C7D2FE; border-radius: 18px 18px 18px 4px; }
-        .bubble-user { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 18px 18px 4px 18px; }
-        .icon-btn { background: #F3F4F6; border: 1px solid #E5E7EB; border-radius: 12px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 18px; flex-shrink: 0; }
-        .icon-btn:hover { background: #E5E7EB; }
-        .icon-btn.active { background: rgba(200,16,46,0.10); border-color: #C8102E; animation: pulse-ring 1s ease infinite; }
-        .icon-btn.speaking { background: rgba(0,48,135,0.10); border-color: #003087; }
-        .send-btn { background: linear-gradient(135deg, #003087, #00A651); border: none; border-radius: 12px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 18px; flex-shrink: 0; color: white; }
-        .send-btn:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 4px 16px rgba(0,48,135,0.25); }
-        .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-        textarea { background: transparent; border: none; outline: none; color: #0D1B2A; font-family: inherit; font-size: 14px; resize: none; flex: 1; line-height: 1.6; }
-        textarea::placeholder { color: #9CA3AF; }
-        @keyframes pulse-ring { 0%,100% { box-shadow: 0 0 0 0 rgba(200,16,46,0.3); } 50% { box-shadow: 0 0 0 8px rgba(200,16,46,0); } }
-        @keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
-        .dot { width: 6px; height: 6px; background: #003087; border-radius: 50%; animation: bounce 1.2s ease infinite; display: inline-block; }
-        .dot:nth-child(2) { animation-delay: 0.15s; } .dot:nth-child(3) { animation-delay: 0.3s; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 10px; }
+        textarea { background: transparent; border: none; outline: none; color: #0D1B2A; font-family: inherit; font-size: 14px; resize: none; flex: 1; line-height: 1.65; letter-spacing: -0.01em; }
+        textarea::placeholder { color: rgba(0,0,0,0.3); }
+        @keyframes bounce { 0%,80%,100% { transform: translateY(0); opacity: 0.5; } 40% { transform: translateY(-5px); opacity: 1; } }
+        @keyframes mic-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(200,16,46,0.3); } 50% { box-shadow: 0 0 0 7px rgba(200,16,46,0); } }
+        @keyframes float-orb-1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(25px,-18px); } }
+        @keyframes float-orb-2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-18px,25px); } }
+        .dot { width: 6px; height: 6px; background: #6366f1; border-radius: 50%; animation: bounce 1.3s ease infinite; display: inline-block; }
+        .dot:nth-child(2) { animation-delay: 0.18s; }
+        .dot:nth-child(3) { animation-delay: 0.36s; }
+        .glass-btn { transition: all 0.15s ease; }
+        .glass-btn:hover { transform: scale(1.08); }
+        .glass-btn:active { transform: scale(0.96); }
       `}</style>
 
-      <div style={{ padding: "14px 20px", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: 14, background: "#FFFFFF", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-        <button onClick={() => { setPhase("select"); setSelectedCase(null); setMessages([]); stopSpeaking(); }} style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 10, padding: "7px 14px", color: "#4B5563", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>
-          ← Cases
-        </button>
+      {/* Background */}
+      <div style={{ position: "fixed", inset: 0, background: "linear-gradient(145deg, #dce8ff 0%, #ede6ff 30%, #d8f5ea 62%, #ffe8f0 100%)", zIndex: 0 }} />
+      <div style={{ position: "fixed", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 68%)", top: -150, left: -120, zIndex: 0, animation: "float-orb-1 14s ease-in-out infinite" }} />
+      <div style={{ position: "fixed", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,166,81,0.14) 0%, transparent 68%)", bottom: -80, right: -80, zIndex: 0, animation: "float-orb-2 18s ease-in-out infinite" }} />
+
+      {/* Header — glass bar */}
+      <div style={{
+        position: "relative", zIndex: 10,
+        padding: "13px 18px",
+        background: "rgba(255,255,255,0.68)",
+        backdropFilter: "blur(32px) saturate(200%)",
+        WebkitBackdropFilter: "blur(32px) saturate(200%)",
+        borderBottom: "1px solid rgba(255,255,255,0.7)",
+        boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
+        display: "flex", alignItems: "center", gap: 14, flexShrink: 0,
+      }}>
+        <button
+          className="glass-btn"
+          onClick={() => { setPhase("select"); setSelectedCase(null); setMessages([]); stopSpeaking(); }}
+          style={{
+            background: "rgba(0,0,0,0.05)",
+            border: "1px solid rgba(0,0,0,0.08)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            borderRadius: 10, padding: "6px 14px",
+            color: "rgba(0,0,0,0.55)", cursor: "pointer", fontSize: 13,
+            fontFamily: "inherit", fontWeight: 500, letterSpacing: "-0.01em",
+          }}
+        >← Cases</button>
+
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#0D1B2A" }}>{selectedCase?.title}</div>
-          <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>{selectedCase?.type} · {selectedCase?.style} · {selectedCase?.difficulty}</div>
+          <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "-0.02em" }}>{selectedCase?.title}</div>
+          <div style={{ fontSize: 11, color: "rgba(0,0,0,0.38)", marginTop: 1, letterSpacing: "-0.01em" }}>{selectedCase?.type} · {selectedCase?.style} · {selectedCase?.difficulty}</div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {isSpeaking && <button className="icon-btn speaking" onClick={stopSpeaking} title="Stop speaking">🔊</button>}
-          <button className="icon-btn" onClick={() => { setVoiceEnabled(v => !v); if (isSpeaking) stopSpeaking(); }} title={voiceEnabled ? "Disable voice output" : "Enable voice output"} style={{ opacity: voiceEnabled ? 1 : 0.4 }}>
-            {voiceEnabled ? "🔈" : "🔇"}
-          </button>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          {isSpeaking && (
+            <button className="glass-btn" onClick={stopSpeaking} style={{ background: "rgba(0,48,135,0.08)", border: "1px solid rgba(0,48,135,0.14)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderRadius: 10, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15 }}>🔊</button>
+          )}
+          <button
+            className="glass-btn"
+            onClick={() => { setVoiceEnabled(v => !v); if (isSpeaking) stopSpeaking(); }}
+            style={{
+              background: voiceEnabled ? "rgba(0,48,135,0.08)" : "rgba(0,0,0,0.05)",
+              border: voiceEnabled ? "1px solid rgba(0,48,135,0.14)" : "1px solid rgba(0,0,0,0.08)",
+              backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+              borderRadius: 10, width: 38, height: 38,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", fontSize: 15, opacity: voiceEnabled ? 1 : 0.45,
+            }}
+          >{voiceEnabled ? "🔈" : "🔇"}</button>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "22px 18px", display: "flex", flexDirection: "column", gap: 14, position: "relative", zIndex: 1 }}>
         {messages.map((m, i) => (
           <div key={i} style={{ display: "flex", flexDirection: m.role === "assistant" ? "row" : "row-reverse", gap: 10, alignItems: "flex-end" }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: m.role === "assistant" ? "linear-gradient(135deg,#003087,#00A651)" : "#F3F4F6", border: m.role === "assistant" ? "none" : "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: "50%",
+              background: m.role === "assistant"
+                ? "linear-gradient(135deg, #003087 0%, #6366f1 100%)"
+                : "rgba(255,255,255,0.65)",
+              border: m.role === "assistant" ? "none" : "1px solid rgba(255,255,255,0.9)",
+              backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
+              boxShadow: m.role === "assistant" ? "0 2px 10px rgba(0,48,135,0.3)" : "0 2px 8px rgba(0,0,0,0.06)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, flexShrink: 0,
+            }}>
               {m.role === "assistant" ? "🎓" : "👤"}
             </div>
-            <div className={m.role === "assistant" ? "bubble-ai" : "bubble-user"} style={{ maxWidth: "78%", padding: "12px 16px" }}>
-              <div style={{ fontSize: 13, lineHeight: 1.7, color: m.role === "assistant" ? "#1E3A5F" : "#374151", whiteSpace: "pre-wrap" }}>{m.content}</div>
+            <div style={{
+              maxWidth: "78%", padding: "12px 16px",
+              background: m.role === "assistant"
+                ? "rgba(99,102,241,0.07)"
+                : "rgba(255,255,255,0.68)",
+              backdropFilter: "blur(22px) saturate(180%)",
+              WebkitBackdropFilter: "blur(22px) saturate(180%)",
+              border: m.role === "assistant"
+                ? "1px solid rgba(99,102,241,0.14)"
+                : "1px solid rgba(255,255,255,0.92)",
+              borderRadius: m.role === "assistant" ? "18px 18px 18px 4px" : "18px 18px 4px 18px",
+              boxShadow: "0 2px 18px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.85)",
+            }}>
+              <div style={{ fontSize: 14, lineHeight: 1.72, color: m.role === "assistant" ? "#1a2f5a" : "#374151", whiteSpace: "pre-wrap", letterSpacing: "-0.01em" }}>{m.content}</div>
             </div>
           </div>
         ))}
+
         {loading && (
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#003087,#00A651)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🎓</div>
-            <div className="bubble-ai" style={{ padding: "14px 18px", display: "flex", gap: 5, alignItems: "center" }}>
+            <div style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg,#003087,#6366f1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, boxShadow: "0 2px 10px rgba(0,48,135,0.3)", flexShrink: 0 }}>🎓</div>
+            <div style={{ padding: "14px 18px", background: "rgba(99,102,241,0.07)", backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)", border: "1px solid rgba(99,102,241,0.14)", borderRadius: "18px 18px 18px 4px", boxShadow: "0 2px 18px rgba(0,0,0,0.06)", display: "flex", gap: 5, alignItems: "center" }}>
               <div className="dot" /><div className="dot" /><div className="dot" />
             </div>
           </div>
@@ -478,25 +638,99 @@ export default function CaseCoach() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div style={{ padding: "12px 16px 16px", borderTop: "1px solid #E5E7EB", background: "#FFFFFF", flexShrink: 0 }}>
+      {/* Input bar */}
+      <div style={{
+        position: "relative", zIndex: 10,
+        padding: "12px 16px 20px",
+        background: "rgba(255,255,255,0.68)",
+        backdropFilter: "blur(32px) saturate(200%)",
+        WebkitBackdropFilter: "blur(32px) saturate(200%)",
+        borderTop: "1px solid rgba(255,255,255,0.7)",
+        boxShadow: "0 -1px 0 rgba(0,0,0,0.03)",
+        flexShrink: 0,
+      }}>
         {(isListening || transcript) && (
-          <div style={{ marginBottom: 8, padding: "8px 14px", background: "rgba(200,16,46,0.06)", border: "1px solid rgba(200,16,46,0.2)", borderRadius: 10, fontSize: 13, color: "#C8102E", display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#C8102E", display: "inline-block", animation: "pulse-ring 1s ease infinite" }} />
-            {transcript || "Listening..."}
+          <div style={{
+            marginBottom: 8, padding: "8px 14px",
+            background: "rgba(200,16,46,0.05)",
+            backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+            border: "1px solid rgba(200,16,46,0.14)",
+            borderRadius: 12, fontSize: 13, color: "#C8102E",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#C8102E", display: "inline-block", animation: "mic-pulse 1s ease infinite" }} />
+            {transcript || "Listening…"}
           </div>
         )}
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 16, padding: "10px 12px" }}>
-          <textarea ref={inputRef} rows={2} placeholder="Type your response or use the mic..." value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} disabled={loading} />
-          <button className={`icon-btn ${isListening ? "active" : ""}`} onClick={isListening ? stopListening : startListening} disabled={loading} title={isListening ? "Stop recording" : "Start voice input"}>
-            {isListening ? "⏹" : "🎙️"}
-          </button>
-          <button className="send-btn" onClick={() => sendMessage()} disabled={loading || !input.trim()}>↑</button>
+
+        <div style={{
+          display: "flex", gap: 10, alignItems: "flex-end",
+          background: "rgba(255,255,255,0.65)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          border: "1px solid rgba(255,255,255,0.95)",
+          borderRadius: 18, padding: "10px 12px",
+          boxShadow: "0 2px 18px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)",
+        }}>
+          <textarea
+            ref={inputRef}
+            rows={2}
+            placeholder="Type your response or use the mic…"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKey}
+            disabled={loading}
+          />
+          <button
+            className="glass-btn"
+            onClick={isListening ? stopListening : startListening}
+            disabled={loading}
+            style={{
+              background: isListening ? "rgba(200,16,46,0.1)" : "rgba(0,0,0,0.05)",
+              border: isListening ? "1px solid rgba(200,16,46,0.22)" : "1px solid rgba(0,0,0,0.08)",
+              backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+              borderRadius: 12, width: 40, height: 40,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", fontSize: 17, flexShrink: 0,
+              animation: isListening ? "mic-pulse 1s ease infinite" : "none",
+            }}
+          >{isListening ? "⏹" : "🎙️"}</button>
+
+          <button
+            className="glass-btn"
+            onClick={() => sendMessage()}
+            disabled={loading || !input.trim()}
+            style={{
+              background: "linear-gradient(135deg, #003087 0%, #6366f1 100%)",
+              border: "none",
+              borderRadius: 12, width: 40, height: 40,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: loading || !input.trim() ? "not-allowed" : "pointer",
+              fontSize: 17, flexShrink: 0, color: "white",
+              opacity: loading || !input.trim() ? 0.32 : 1,
+              boxShadow: loading || !input.trim() ? "none" : "0 4px 16px rgba(0,48,135,0.3)",
+            }}
+          >↑</button>
         </div>
-        <div style={{ display: "flex", gap: 12, marginTop: 8, justifyContent: "center" }}>
+
+        {/* Command pills */}
+        <div style={{ display: "flex", gap: 10, marginTop: 10, justifyContent: "center" }}>
           {["/hint", "/feedback", "/score"].map(cmd => (
-            <button key={cmd} onClick={() => { setInput(cmd); setTimeout(() => sendMessage(cmd), 50); }} style={{ background: "rgba(0,48,135,0.06)", border: "1px solid rgba(0,48,135,0.18)", borderRadius: 8, padding: "4px 12px", color: "#003087", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
-              {cmd}
-            </button>
+            <button
+              key={cmd}
+              className="glass-btn"
+              onClick={() => { setInput(cmd); setTimeout(() => sendMessage(cmd), 50); }}
+              style={{
+                background: "rgba(255,255,255,0.55)",
+                backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+                border: "1px solid rgba(255,255,255,0.88)",
+                borderRadius: 50, padding: "5px 16px",
+                color: "#003087", fontSize: 12, cursor: "pointer",
+                fontFamily: "inherit", fontWeight: 600,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.95)",
+                letterSpacing: "0.01em",
+              }}
+            >{cmd}</button>
           ))}
         </div>
       </div>
