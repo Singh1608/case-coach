@@ -164,15 +164,22 @@ export default function CaseCoach() {
 
   const stopListening = () => { recognitionRef.current?.stop(); setIsListening(false); };
 
+  const isSpanish = (text: string): boolean => {
+    const markers = /\b(el |la |los |las |de |que |es |en |un |una |con |para |por |como |está|están|tiene|tienen|pero |también|esto |esta |ese |esa |del |al |lo |le |se |su |más |muy |todo|toda|cuando|donde|quien|porque|aunque|sino|cada|otro|otra)\b/gi;
+    return (text.match(markers) ?? []).length >= 5;
+  };
+
   const callAPI = async (msgs: {role: string; content: string}[], caseData: any, retried = false): Promise<string> => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY ?? "";
     const models = MODEL_ORDER[caseData.difficulty] ?? MODEL_ORDER.Medium;
     const model = models[modelIdxRef.current] ?? models[0];
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    const contents = msgs.map(m => ({
+    const contents = msgs.map((m, i) => ({
       role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
+      parts: [{ text: i === msgs.length - 1 && m.role === "user"
+        ? m.content + "\n\n[Important: your response must be in English only.]"
+        : m.content }],
     }));
 
     const res = await fetch(url, {
@@ -196,7 +203,18 @@ export default function CaseCoach() {
     if (!raw?.trim()) throw new Error("Empty response (status " + res.status + ")");
     if (!res.ok) throw new Error("API " + res.status + ": " + raw.slice(0, 200));
     const data = JSON.parse(raw);
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "...";
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "...";
+
+    if (!retried && isSpanish(text)) {
+      const corrected = [
+        ...msgs,
+        { role: "assistant", content: text },
+        { role: "user", content: "Please repeat your last response in English only." },
+      ];
+      return callAPI(corrected, caseData, true);
+    }
+
+    return text;
   };
 
   const startCase = async (c: any) => {
