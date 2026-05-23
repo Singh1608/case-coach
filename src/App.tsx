@@ -104,20 +104,37 @@ export default function CaseCoach() {
   const selectedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
 
   const pickVoice = useCallback(() => {
-    if (selectedVoiceRef.current) return;
     const voices = synthRef.current?.getVoices() ?? [];
-    const priority = [
-      "Google UK English Male",
-      "Daniel",
-      "Alex",
+    if (voices.length === 0) return;
+
+    // Natural-sounding voices: Google Neural > Apple system > decent en-* fallback
+    // Covers US, UK, Canadian, Indian accents, mix of male/female
+    const preferred = [
+      "Google UK English Male", "Google UK English Female",
+      "Google US English",
+      "Daniel",   // UK male (macOS/iOS)
+      "Martha",   // UK female (macOS/iOS)
+      "Alex",     // US male (macOS)
+      "Samantha", // US female (macOS/iOS)
+      "Victoria", // US female (macOS)
+      "Rishi",    // Indian male (macOS/iOS)
+      "Moira",    // Irish female (macOS)
     ];
-    for (const name of priority) {
-      const v = voices.find(v => v.name.includes(name));
-      if (v) { selectedVoiceRef.current = v; return; }
+
+    const good = voices.filter(v =>
+      v.lang.startsWith("en") && preferred.some(p => v.name.includes(p))
+    );
+
+    // Fallback: any en-GB, en-US, en-IN, en-CA that isn't a known robotic MS voice
+    const decent = voices.filter(v =>
+      ["en-GB", "en-US", "en-IN", "en-CA"].includes(v.lang) &&
+      !/(zira|david|mark|hazel|hedda|helena|stefan|pablo)/i.test(v.name)
+    );
+
+    const pool = good.length > 0 ? good : decent;
+    if (pool.length > 0) {
+      selectedVoiceRef.current = pool[Math.floor(Math.random() * pool.length)];
     }
-    const enGB = voices.find(v => v.lang === "en-GB");
-    const enUS = voices.find(v => v.lang === "en-US" && !v.name.toLowerCase().includes("female") && !v.name.toLowerCase().includes("zira"));
-    selectedVoiceRef.current = enGB ?? enUS ?? voices.find(v => v.lang.startsWith("en")) ?? null;
   }, []);
 
   useEffect(() => {
@@ -137,7 +154,7 @@ export default function CaseCoach() {
     if (!clean) return;
     const utt = new SpeechSynthesisUtterance(clean);
     if (selectedVoiceRef.current) utt.voice = selectedVoiceRef.current;
-    utt.rate = 0.92;
+    utt.rate = 0.9 + Math.random() * 0.05; // 0.90–0.95, slight natural variation
     utt.pitch = 1.0;
     utt.volume = 1.0;
     utt.onstart = () => setIsSpeaking(true);
@@ -262,6 +279,7 @@ export default function CaseCoach() {
   };
 
   const startCase = async (c: any) => {
+    pickVoice(); // fresh random voice for each case session
     const models = MODEL_ORDER[c.difficulty] ?? MODEL_ORDER.Medium;
     modelIdxRef.current = 0;
     setActiveModel(models[0]);
