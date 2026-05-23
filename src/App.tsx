@@ -152,6 +152,7 @@ export default function CaseCoach() {
       .replace(/━+[^━]*━+/g, "")
       .trim();
     if (!clean) return;
+    if (!selectedVoiceRef.current) pickVoice();
     const utt = new SpeechSynthesisUtterance(clean);
     if (selectedVoiceRef.current) utt.voice = selectedVoiceRef.current;
     utt.rate = 0.9 + Math.random() * 0.05; // 0.90–0.95, slight natural variation
@@ -239,70 +240,74 @@ export default function CaseCoach() {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY ?? "";
     const modelList = MODEL_ORDER[caseData.difficulty] ?? MODEL_ORDER.Medium;
     const model = modelList[modelIdxRef.current] ?? modelList[0];
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
-    const contents = msgs.map((m, i) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: i === msgs.length - 1 && m.role === "user"
-        ? m.content + "\n\n[RESPOND IN ENGLISH ONLY. No Spanish. No other language.]"
-        : m.content }],
-    }));
+    const payload = {
+      system_instruction: { parts: [{ text: SYSTEM_PROMPT(caseData, caseData.style) }] },
+      contents: msgs.map((m, i) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: i === msgs.length - 1 && m.role === "user"
+          ? m.content + "\n\n[RESPOND IN ENGLISH ONLY. No Spanish. No other language.]"
+          : m.content }],
+      })),
+      generationConfig: { maxOutputTokens: 800, temperature: 0.75 },
+    };
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT(caseData, caseData.style) }] },
-        contents,
-        generationConfig: { maxOutputTokens: 800, temperature: 0.75 },
-      }),
-    });
-
-    if ((res.status === 429 || res.status === 503) && !retried) {
+    const switchModel = async (): Promise<string> => {
+      if (retried) throw new Error("quota");
       const next = Math.min(modelIdxRef.current + 1, modelList.length - 1);
       modelIdxRef.current = next;
       setActiveModel(modelList[next]);
       return callAPI(msgs, caseData, onChunk, true);
-    }
+    };
 
-    if (!res.ok) {
-      throw new Error("API " + res.status);
-    }
-    if (!res.body) throw new Error("No stream");
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
+    // Attempt 1: streaming (faster perceived response)
     let fullText = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const json = line.slice(6).trim();
-        if (!json || json === "[DONE]") continue;
-        try {
-          const chunk = JSON.parse(json);
-          const part = chunk.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-          if (part) { fullText += part; onChunk(fullText); }
-        } catch {}
+    try {
+      const streamUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
+      const sRes = await fetch(streamUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (sRes.status === 429 || sRes.status === 503) return switchModel();
+      if (sRes.ok && sRes.body) {
+        const reader = sRes.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const json = line.slice(6).trim();
+            if (!json || json === "[DONE]") continue;
+            try {
+              const part = JSON.parse(json)?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+              if (part) { fullText += part; onChunk(fullText); }
+            } catch {}
+          }
+        }
       }
+    } catch {}
+
+    // Attempt 2: non-streaming fallback if stream gave nothing
+    if (!fullText) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (res.status === 429 || res.status === 503) return switchModel();
+      if (!res.ok) throw new Error("API " + res.status);
+      const data = await res.json();
+      fullText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      if (fullText) onChunk(fullText);
     }
+
+    if (!fullText) throw new Error("empty response");
 
     if (!retried && isSpanish(fullText)) {
-      const corrected = [
-        ...msgs,
-        { role: "assistant", content: fullText },
-        { role: "user", content: "Please repeat your last response in English only." },
-      ];
+      const corrected = [...msgs, { role: "assistant", content: fullText }, { role: "user", content: "Please repeat your last response in English only." }];
       return callAPI(corrected, caseData, onChunk, true);
     }
 
-    return fullText || "...";
+    return fullText;
   };
 
   const startCase = async (c: any) => {
