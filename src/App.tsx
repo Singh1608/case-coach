@@ -335,6 +335,7 @@ export default function CaseCoach() {
 
   const sendMessage = async (overrideInput?: string) => {
     unlockAudio();
+    stopListening();
     const userMsg = (overrideInput || input).trim();
     if (!userMsg || loading) return;
     setInput("");
