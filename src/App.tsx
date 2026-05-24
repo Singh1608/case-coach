@@ -104,15 +104,21 @@ export default function CaseCoach() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUnlockedRef = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-  // Unlock audio on first user gesture — required for iOS/Android autoplay policy
+  // Called on every user tap — creates/resumes AudioContext inside the gesture so iOS allows later async playback
   const unlockAudio = useCallback(() => {
-    if (audioUnlockedRef.current) return;
-    const a = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
-    a.play().then(() => { audioUnlockedRef.current = true; }).catch(() => { audioUnlockedRef.current = true; });
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    } catch {}
   }, []);
 
   const speak = useCallback(async (text: string) => {
@@ -123,6 +129,9 @@ export default function CaseCoach() {
       .replace(/━+[^━]*━+/g, "")
       .trim();
     if (!clean) return;
+    // Stop any currently playing audio
+    try { audioSourceRef.current?.stop(); } catch {}
+    audioSourceRef.current = null;
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setIsSpeaking(true);
     try {
@@ -133,17 +142,37 @@ export default function CaseCoach() {
       });
       if (!res.ok) throw new Error("TTS failed");
       const { audioContent } = await res.json();
-      const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
-      audioRef.current = audio;
-      audio.onended = () => { setIsSpeaking(false); audioRef.current = null; };
-      audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; };
-      audio.play();
+
+      const ctx = audioCtxRef.current;
+      if (ctx && ctx.state !== "closed") {
+        // Web Audio API path — works reliably on iOS
+        if (ctx.state === "suspended") await ctx.resume();
+        const binary = atob(audioContent);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const buffer = await ctx.decodeAudioData(bytes.buffer);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        audioSourceRef.current = source;
+        source.onended = () => { setIsSpeaking(false); audioSourceRef.current = null; };
+        source.start(0);
+      } else {
+        // Fallback for browsers without AudioContext
+        const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
+        audioRef.current = audio;
+        audio.onended = () => { setIsSpeaking(false); audioRef.current = null; };
+        audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; };
+        audio.play().catch(() => setIsSpeaking(false));
+      }
     } catch {
       setIsSpeaking(false);
     }
   }, [voiceEnabled]);
 
   const stopSpeaking = () => {
+    try { audioSourceRef.current?.stop(); } catch {}
+    audioSourceRef.current = null;
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setIsSpeaking(false);
   };
