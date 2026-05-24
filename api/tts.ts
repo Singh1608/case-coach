@@ -8,7 +8,8 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: "Invalid text" });
   }
 
-  const apiKey = process.env.GOOGLE_TTS_KEY;
+  // GOOGLE_TTS_KEY (server-only, preferred) or fall back to existing VITE_ var
+  const apiKey = process.env.GOOGLE_TTS_KEY || process.env.VITE_GOOGLE_TTS_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: "TTS not configured" });
   }
