@@ -104,8 +104,16 @@ export default function CaseCoach() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUnlockedRef = useRef(false);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  // Unlock audio on first user gesture — required for iOS/Android autoplay policy
+  const unlockAudio = useCallback(() => {
+    if (audioUnlockedRef.current) return;
+    const a = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
+    a.play().then(() => { audioUnlockedRef.current = true; }).catch(() => { audioUnlockedRef.current = true; });
+  }, []);
 
   const speak = useCallback(async (text: string) => {
     if (!voiceEnabled) return;
@@ -275,6 +283,7 @@ export default function CaseCoach() {
   };
 
   const startCase = async (c: any) => {
+    unlockAudio();
     const models = MODEL_ORDER[c.difficulty] ?? MODEL_ORDER.Medium;
     modelIdxRef.current = 0;
     setActiveModel(models[0]);
@@ -296,6 +305,7 @@ export default function CaseCoach() {
   };
 
   const sendMessage = async (overrideInput?: string) => {
+    unlockAudio();
     const userMsg = (overrideInput || input).trim();
     if (!userMsg || loading) return;
     setInput("");
