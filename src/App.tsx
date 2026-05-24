@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
 const MODEL_ORDER: Record<string, string[]> = {
-  Hard:   ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-2.0-flash-001", "gemini-2.0-flash-lite"],
-  Medium: ["gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash-001", "gemini-2.0-flash-lite"],
-  Easy:   ["gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash-001", "gemini-2.0-flash-lite"],
+  Hard:   ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-2.5-flash-lite"],
+  Medium: ["gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-flash-lite"],
+  Easy:   ["gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-flash-lite"],
 };
 
 const CASES = [
