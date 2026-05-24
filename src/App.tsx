@@ -103,61 +103,42 @@ export default function CaseCoach() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
-  const synthRef = useRef(window.speechSynthesis);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-  const selectedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
-
-  const pickVoice = useCallback(() => {
-    const voices = synthRef.current?.getVoices() ?? [];
-    if (voices.length === 0) return;
-    const preferred = [
-      "Google UK English Male", "Google UK English Female",
-      "Google US English", "Daniel", "Martha", "Alex", "Samantha",
-      "Victoria", "Rishi", "Moira",
-    ];
-    const good = voices.filter(v =>
-      v.lang.startsWith("en") && preferred.some(p => v.name.includes(p))
-    );
-    const decent = voices.filter(v =>
-      ["en-GB", "en-US", "en-IN", "en-CA"].includes(v.lang) &&
-      !/(zira|david|mark|hazel|hedda|helena|stefan|pablo)/i.test(v.name)
-    );
-    const pool = good.length > 0 ? good : decent;
-    if (pool.length > 0) {
-      selectedVoiceRef.current = pool[Math.floor(Math.random() * pool.length)];
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.speechSynthesis.getVoices().length) { pickVoice(); return; }
-    window.speechSynthesis.onvoiceschanged = pickVoice;
-  }, [pickVoice]);
-
-  const speak = useCallback((text: string) => {
-    if (!voiceEnabled || !synthRef.current) return;
-    synthRef.current.cancel();
+  const speak = useCallback(async (text: string) => {
+    if (!voiceEnabled) return;
     const clean = text
       .replace(/[*_`#]/g, "")
       .replace(/\/\w+/g, "")
       .replace(/━+[^━]*━+/g, "")
       .trim();
     if (!clean) return;
-    if (!selectedVoiceRef.current) pickVoice();
-    const utt = new SpeechSynthesisUtterance(clean);
-    if (selectedVoiceRef.current) utt.voice = selectedVoiceRef.current;
-    utt.rate = 0.9 + Math.random() * 0.05;
-    utt.pitch = 1.0;
-    utt.volume = 1.0;
-    utt.onstart = () => setIsSpeaking(true);
-    utt.onend = () => setIsSpeaking(false);
-    utt.onerror = () => setIsSpeaking(false);
-    synthRef.current.speak(utt);
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    setIsSpeaking(true);
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: clean }),
+      });
+      if (!res.ok) throw new Error("TTS failed");
+      const { audioContent } = await res.json();
+      const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
+      audioRef.current = audio;
+      audio.onended = () => { setIsSpeaking(false); audioRef.current = null; };
+      audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; };
+      audio.play();
+    } catch {
+      setIsSpeaking(false);
+    }
   }, [voiceEnabled]);
 
-  const stopSpeaking = () => { synthRef.current?.cancel(); setIsSpeaking(false); };
+  const stopSpeaking = () => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    setIsSpeaking(false);
+  };
 
   const startListening = useCallback(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -294,7 +275,6 @@ export default function CaseCoach() {
   };
 
   const startCase = async (c: any) => {
-    pickVoice();
     const models = MODEL_ORDER[c.difficulty] ?? MODEL_ORDER.Medium;
     modelIdxRef.current = 0;
     setActiveModel(models[0]);
