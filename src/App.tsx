@@ -102,6 +102,7 @@ export default function CaseCoach() {
   const modelIdxRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const accumulatedRef = useRef("");
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -181,42 +182,57 @@ export default function CaseCoach() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { alert("Voice input not supported in this browser. Try Chrome."); return; }
     stopSpeaking();
-    const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = "en-US";
-    let finalText = "";
-    rec.onstart = () => setIsListening(true);
-    rec.onresult = (e: any) => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          finalText += e.results[i][0].transcript + " ";
-        } else {
-          interim = e.results[i][0].transcript;
+    accumulatedRef.current = "";
+
+    const launch = () => {
+      const rec = new SR();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = "en-US";
+
+      rec.onstart = () => setIsListening(true);
+
+      rec.onresult = (e: any) => {
+        let sessionFinal = "";
+        let interim = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) sessionFinal += e.results[i][0].transcript + " ";
+          else interim = e.results[i][0].transcript;
         }
-      }
-      const combined = finalText.trimEnd() + (interim ? " " + interim : "");
-      setTranscript(interim);
-      setInput(combined.trim());
+        if (sessionFinal) accumulatedRef.current += sessionFinal;
+        const combined = accumulatedRef.current.trimEnd() + (interim ? " " + interim : "");
+        setTranscript(interim);
+        setInput(combined.trim());
+      };
+
+      rec.onend = () => {
+        if (recognitionRef.current) {
+          // create a fresh instance to avoid Android Chrome re-delivering old results
+          const next = launch();
+          recognitionRef.current = next;
+          next.start();
+        } else {
+          setIsListening(false);
+          setTranscript("");
+        }
+      };
+
+      rec.onerror = (e: any) => {
+        if (e.error === "no-speech" && recognitionRef.current) {
+          const next = launch();
+          recognitionRef.current = next;
+          next.start();
+        } else if (recognitionRef.current) {
+          recognitionRef.current = null;
+          setIsListening(false);
+          setTranscript("");
+        }
+      };
+
+      return rec;
     };
-    rec.onend = () => {
-      if (recognitionRef.current === rec) {
-        try { rec.start(); } catch (_) {}
-      } else {
-        setIsListening(false);
-        setTranscript("");
-      }
-    };
-    rec.onerror = (e: any) => {
-      if (e.error === "no-speech" && recognitionRef.current === rec) {
-        try { rec.start(); } catch (_) {}
-      } else if (recognitionRef.current === rec) {
-        recognitionRef.current = null;
-        setIsListening(false);
-        setTranscript("");
-      }
-    };
+
+    const rec = launch();
     recognitionRef.current = rec;
     rec.start();
   }, []);
