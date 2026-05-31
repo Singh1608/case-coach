@@ -102,7 +102,8 @@ export default function CaseCoach() {
   const modelIdxRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const accumulatedRef = useRef("");
+  const baseRef = useRef("");    // confirmed text from ended sessions
+  const sessionRef = useRef(""); // current session's final text, rebuilt each event
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -182,7 +183,8 @@ export default function CaseCoach() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { alert("Voice input not supported in this browser. Try Chrome."); return; }
     stopSpeaking();
-    accumulatedRef.current = "";
+    baseRef.current = "";
+    sessionRef.current = "";
 
     const launch = () => {
       const rec = new SR();
@@ -193,21 +195,25 @@ export default function CaseCoach() {
       rec.onstart = () => setIsListening(true);
 
       rec.onresult = (e: any) => {
+        // Always iterate from 0 — Android Chrome has a bug where resultIndex
+        // stays at 0, causing incremental appends to double every word.
+        // Instead we rebuild session text from scratch each event and overwrite.
         let sessionFinal = "";
         let interim = "";
-        for (let i = e.resultIndex; i < e.results.length; i++) {
+        for (let i = 0; i < e.results.length; i++) {
           if (e.results[i].isFinal) sessionFinal += e.results[i][0].transcript + " ";
           else interim = e.results[i][0].transcript;
         }
-        if (sessionFinal) accumulatedRef.current += sessionFinal;
-        const combined = accumulatedRef.current.trimEnd() + (interim ? " " + interim : "");
+        sessionRef.current = sessionFinal;
+        const combined = (baseRef.current + sessionFinal).trimEnd() + (interim ? " " + interim : "");
         setTranscript(interim);
         setInput(combined.trim());
       };
 
       rec.onend = () => {
         if (recognitionRef.current) {
-          // create a fresh instance to avoid Android Chrome re-delivering old results
+          baseRef.current += sessionRef.current;
+          sessionRef.current = "";
           const next = launch();
           recognitionRef.current = next;
           next.start();
@@ -219,6 +225,8 @@ export default function CaseCoach() {
 
       rec.onerror = (e: any) => {
         if (e.error === "no-speech" && recognitionRef.current) {
+          baseRef.current += sessionRef.current;
+          sessionRef.current = "";
           const next = launch();
           recognitionRef.current = next;
           next.start();
