@@ -75,6 +75,12 @@ FINAL REMINDER: Respond in English only. Every word.
 Open the case now.`;
 };
 
+const track = (event: string, params?: Record<string, any>) => {
+  if (typeof (window as any).gtag === "function") {
+    (window as any).gtag("event", event, params ?? {});
+  }
+};
+
 const TYPE_COLORS: Record<string, string> = {
   "Market Entry": "#6366f1",
   "Profitability": "#f59e0b",
@@ -108,6 +114,27 @@ export default function CaseCoach() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+
+  // Load GA4 once on mount
+  useEffect(() => {
+    const id = import.meta.env.VITE_GA_MEASUREMENT_ID;
+    if (!id || (window as any).__gaLoaded) return;
+    (window as any).__gaLoaded = true;
+    const s = document.createElement("script");
+    s.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
+    s.async = true;
+    document.head.appendChild(s);
+    (window as any).dataLayer = (window as any).dataLayer || [];
+    (window as any).gtag = function () { (window as any).dataLayer.push(arguments); };
+    (window as any).gtag("js", new Date());
+    (window as any).gtag("config", id, { send_page_view: false });
+  }, []);
+
+  // Track screen transitions
+  useEffect(() => {
+    if (phase === "select") track("select_screen_viewed");
+    if (phase === "chat" && selectedCase) track("chat_screen_viewed", { case_id: selectedCase.id, case_title: selectedCase.title });
+  }, [phase]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -182,6 +209,7 @@ export default function CaseCoach() {
   const startListening = useCallback(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { alert("Voice input not supported in this browser. Try Chrome."); return; }
+    track("voice_input_started", { case_id: selectedCase?.id });
     stopSpeaking();
     baseRef.current = "";
     sessionRef.current = "";
@@ -246,6 +274,7 @@ export default function CaseCoach() {
   }, []);
 
   const stopListening = () => {
+    if (recognitionRef.current) track("voice_input_stopped", { case_id: selectedCase?.id });
     const rec = recognitionRef.current;
     recognitionRef.current = null;
     rec?.stop();
@@ -282,6 +311,7 @@ export default function CaseCoach() {
     const switchModel = async (): Promise<string> => {
       if (retried) throw new Error("quota");
       const next = Math.min(modelIdxRef.current + 1, modelList.length - 1);
+      track("model_fallback", { from_model: model, to_model: modelList[next], difficulty: caseData.difficulty });
       modelIdxRef.current = next;
       setActiveModel(modelList[next]);
       return callAPI(msgs, caseData, onChunk, true);
@@ -336,6 +366,7 @@ export default function CaseCoach() {
   };
 
   const startCase = async (c: any) => {
+    track("case_started", { case_id: c.id, case_title: c.title, case_type: c.type, difficulty: c.difficulty, style: c.style });
     unlockAudio();
     const models = MODEL_ORDER[c.difficulty] ?? MODEL_ORDER.Medium;
     modelIdxRef.current = 0;
@@ -362,6 +393,8 @@ export default function CaseCoach() {
     stopListening();
     const userMsg = (overrideInput || input).trim();
     if (!userMsg || loading) return;
+    const isCommand = userMsg.startsWith("/");
+    track(isCommand ? "command_used" : "message_sent", { case_id: selectedCase?.id, case_title: selectedCase?.title, command: isCommand ? userMsg : undefined, message_index: messages.filter(m => m.role === "user").length + 1 });
     setInput("");
     const updated = [...messages, { role: "user", content: userMsg }];
     setMessages(updated);
@@ -464,7 +497,7 @@ export default function CaseCoach() {
             <button
               key={t}
               className="filter-pill"
-              onClick={() => setFilter(t)}
+              onClick={() => { track("filter_changed", { filter: t }); setFilter(t); }}
               style={{
                 background: filter === t ? "rgba(0,48,135,0.88)" : "rgba(255,255,255,0.55)",
                 backdropFilter: "blur(16px) saturate(180%)",
@@ -600,7 +633,7 @@ export default function CaseCoach() {
       }}>
         <button
           className="glass-btn"
-          onClick={() => { setPhase("select"); setSelectedCase(null); setMessages([]); stopSpeaking(); }}
+          onClick={() => { track("case_abandoned", { case_id: selectedCase?.id, case_title: selectedCase?.title, message_count: messages.length }); setPhase("select"); setSelectedCase(null); setMessages([]); stopSpeaking(); }}
           style={{
             background: "rgba(0,0,0,0.05)",
             border: "1px solid rgba(0,0,0,0.08)",
