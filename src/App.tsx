@@ -115,21 +115,6 @@ export default function CaseCoach() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
-  // Load GA4 once on mount
-  useEffect(() => {
-    const id = import.meta.env.VITE_GA_MEASUREMENT_ID;
-    if (!id || (window as any).__gaLoaded) return;
-    (window as any).__gaLoaded = true;
-    const s = document.createElement("script");
-    s.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
-    s.async = true;
-    document.head.appendChild(s);
-    (window as any).dataLayer = (window as any).dataLayer || [];
-    (window as any).gtag = function () { (window as any).dataLayer.push(arguments); };
-    (window as any).gtag("js", new Date());
-    (window as any).gtag("config", id, { send_page_view: false });
-  }, []);
-
   // Track screen transitions
   useEffect(() => {
     if (phase === "select") track("select_screen_viewed");
